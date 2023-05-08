@@ -7,4 +7,5 @@ Below is a schematic of the device. The heart rate sensor is connected to the Ar
 The initial display of the Arduino board is as follows:
  
 Arduino continuously reads the heart rate sensor, and when user places finger on the sensor and taps on “Beats per minute” button, a screen appears and shows the beats per minute (BPM) heart rate. The code reads data from the analog pin, converts it into BPM data, and displays it on the screen. The value shown on the screen fluctuates as the BPM value is continuously updated. 
-![image](https://user-images.githubusercontent.com/29722090/236874232-aa19e7a7-6501-4175-8513-249e2c142057.png)
+
+
