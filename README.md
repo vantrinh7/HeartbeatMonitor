@@ -21,3 +21,5 @@ When user clicks on the “LED Bulb Control”, the LED control screen appears. 
 ## File Description
 - [Calculate BPM](https://github.com/vantrinh7/HeartbeatMonitor/blob/master/src/Calculate%20BPM) performs Arduino timer interrupt function, reads the pulse sensor, and calculates BPM values.
 - [Handle Screen Events](https://github.com/vantrinh7/HeartbeatMonitor/blob/master/src/Handle%20screen%20events) handles touch screen interactions, draws the touch screen objects, and controls the LED bulb.
+
+<br>
