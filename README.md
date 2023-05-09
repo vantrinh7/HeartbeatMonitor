@@ -4,7 +4,7 @@ Arduino is a microcontroller platform able to read an input and produce an outpu
 
 Below is a schematic of the device. The heart rate sensor is connected to the Arduino microcontroller board, which controls the LCD screen and the LED bulb. Values from heart rate sensor and LED bulb can then be displayed on the LCD screen.
 
-![](misc/Schematic.gif)
+![](misc/Diagram.png)
  
 The initial display of the Arduino board is as follows:
 
