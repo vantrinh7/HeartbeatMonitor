@@ -1,0 +1,219 @@
+/* This program reads data from heart rate sensor and controls LED bulb
+ * Author: Van Trinh
+ * Date: Dec 5th, 2016
+ */
+#include <SPI.h>
+#include "Adafruit_GFX.h"
+#include "Adafruit_HX8357.h"
+#include <Fonts/FreeSerif18pt7b.h>
+#include <Fonts/FreeSansBold24pt7b.h>
+#include <Fonts/FreeSans12pt7b.h>
+#include "TouchScreen.h"
+
+// These are 'flexible' lines that can be changed
+#define TFT_CS 10
+#define TFT_DC 9
+#define TFT_RST 8 // RST can be set to -1 if you tie it to Arduino's reset
+
+// Use hardware SPI (on Uno, #13, #12, #11) and the above for CS/DC
+Adafruit_HX8357 tft = Adafruit_HX8357(TFT_CS, TFT_DC, TFT_RST);
+
+//Touch screen
+#define YP A2  
+#define XN A3  
+#define YN 7   
+#define XP 8
+TouchScreen myTouch = TouchScreen(XP, YP, XN, YN, 300);
+
+// This is calibration data for the raw touch data to the screen coordinates
+#define TS_MINX 110
+#define TS_MINY 80
+#define TS_MAXX 900
+#define TS_MAXY 940
+#define MINPRESSURE 10
+#define MAXPRESSURE 1000
+
+//Buttons on the home screen
+#define BUTTONLEFT 60 //X coordinate of button
+#define BUTTONTOP 80 //Y coordinate of button
+#define BUTTONWIDTH 360 //Width of button
+#define BUTTONHEIGHT 50 //Height of button
+
+//The LED
+int led = 3;
+
+//Variables for heart beat count
+int prevCount=1;
+int pulsePin = 0; 
+int countdigits[] = {
+  0, 0, 0};
+int prevdigits[] = {
+  0, 0, 0};
+int digitpos[] = {
+  30, 90, 150};
+int x=0; 
+
+//these variables are volatile because they are used during the interrupt service routine!
+volatile int BPM;                   // used to hold the pulse rate
+volatile int Signal;                // holds the incoming raw data
+volatile int IBI = 600;             // holds the time between beats, must be seeded! 
+volatile boolean Pulse = false;     // true when pulse wave is high, false when it's low
+volatile boolean QS = false;        // becomes true when Arduoino finds a beat.
+
+//Varible for current page number
+char currentPage; 
+
+//Current touch point
+int xTouch; 
+int yTouch;
+TSPoint p;
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("begin");
+  pinMode(led, OUTPUT);
+  tft.begin(HX8357D); //Begin
+  tft.setRotation(1); //Set screen rotation 
+  tft.fillScreen(HX8357_BLACK); //Paint the screen black
+  drawHomeScreen(); //Draw the home screen
+  currentPage = '0';
+  interruptSetup();  
+}
+
+void loop() {     
+   p = myTouch.getPoint();
+   // we have some minimum pressure we consider 'valid'; pressure of 0 means no pressing!
+   if (p.z < MINPRESSURE || p.z > MAXPRESSURE) {
+     return;
+   } 
+  // Home Screen
+   if (currentPage == '0'){
+    // Scale from ~0->1000 to tft.width using the calibration #'s
+    xTouch = map(p.x, TS_MINX, TS_MAXX, 0, tft.width());
+    yTouch = map(p.y, TS_MINY, TS_MAXY, 0, tft.height());
+    
+    if (isPressed(BUTTONLEFT,BUTTONTOP - 20, BUTTONWIDTH, BUTTONHEIGHT)){             //If we press "Beats per Minute" button
+       tft.drawRect(BUTTONLEFT,BUTTONTOP, BUTTONWIDTH, BUTTONHEIGHT,HX8357_RED);  //highlight button chosen
+       delay(300);
+       tft.fillScreen(tft.color565(207,79,10)); 
+       currentPage = '1';
+       Serial.println("Set first page");
+
+       //drawButton(380, 15, 80, 50, "Back", 390, 50);  //Draw back button
+       tft.setTextColor(HX8357_WHITE);
+       tft.setCursor(100, 80);
+       tft.setFont(&FreeSerif18pt7b);
+       tft.print("Your current BPM is: ");
+       
+       for (int i = 0; i <100000; i++){
+       displayBPM();
+       }  
+    }
+    if(isPressed(BUTTONLEFT,BUTTONTOP + BUTTONHEIGHT + 20, BUTTONWIDTH, BUTTONHEIGHT)){ //If pressing "RGB Control button"
+      tft.drawRect(BUTTONLEFT,BUTTONTOP + BUTTONHEIGHT + 20, BUTTONWIDTH, BUTTONHEIGHT, HX8357_RED);
+      delay(300);
+      tft.fillScreen(tft.color565(219,37,156));
+      drawLedControl(); 
+      currentPage = '2';
+    }
+ } 
+//Second page
+ 
+ else if (currentPage == '2'){ //If on LED control page
+    //Scale from ~0->1000 to tft.width using the calibration #'s
+     Serial.println("If it's second page");
+     xTouch = map(p.x, TS_MINX, TS_MAXX, 0, tft.width());
+     yTouch = map(p.y, TS_MINY, TS_MAXY, 0, tft.height());
+
+      if(isPressed(60, 240, 180, 70)){                //Press first button
+      //tft.drawRect(60, 210, 180, 70, HX8357_RED);
+      analogWrite(led, 255);
+      }  
+      
+      if(isPressed(140,240, 180, 70)){                //Press second button
+      //tft.drawRect(250,210, 180, 70, HX8357_RED);
+      analogWrite(led, 0);
+      }   
+
+      if(isPressed(- 20, - 15, 80, 50)){                //Press second button
+      tft.drawRect(10, 15, 80, 50, HX8357_RED);
+      delay(300);
+      tft.fillScreen(HX8357_BLACK);
+      currentPage = '0';
+      drawHomeScreen();
+      }   
+ }
+}
+//===========Draw LED Control=============
+void drawLedControl(){
+  tft.setCursor(100, 140);
+  tft.setTextColor(HX8357_WHITE);
+  tft.setFont(&FreeSansBold24pt7b);
+  tft.println("LED Control");
+
+  drawButton(60, 210, 180, 70, "ON", 120, 260);
+  drawButton(250,210, 180, 70, "OFF", 310, 260);
+  drawButton(10, 15, 80, 50, "Back", 15, 50);
+}
+
+//===========Draw Home Screen=============
+void drawHomeScreen() {
+  //Title
+  tft.setCursor(120, 50);
+  tft.setTextColor(HX8357_WHITE);
+  tft.setFont(&FreeSansBold24pt7b);
+  tft.println("Main Menu");
+  
+  //"Beats per minute" button
+  drawButton(BUTTONLEFT,BUTTONTOP, BUTTONWIDTH, BUTTONHEIGHT, "BEATS PER MINUTE",BUTTONLEFT + 20, BUTTONTOP + 35);
+
+  //"Heart beat graph" button
+  drawButton(BUTTONLEFT,BUTTONTOP + BUTTONHEIGHT + 20, BUTTONWIDTH, BUTTONHEIGHT, "LED BULB CONTROL",BUTTONLEFT + 10, BUTTONTOP + BUTTONHEIGHT + 55);
+
+  //Credit
+  tft.setCursor(150, 245);
+  tft.setTextColor(HX8357_WHITE);
+  tft.setFont(&FreeSans12pt7b);
+  tft.println("Author: Van Trinh");
+
+  //Thank you
+  tft.setCursor(60, 283);
+  tft.setTextColor(HX8357_WHITE);
+  tft.setFont(&FreeSerif18pt7b);
+  tft.println("Thank you for watching:)");
+}
+
+//===========Draw a button=============
+void drawButton(double x, double y, double width, double height, String label, double stringLeft, double stringTop){
+  tft.fillRect(x, y, width, height, tft.color565(16, 167, 103)); //Set color to green
+  tft.drawRect(x, y, width, height, tft.color565(255, 255, 255)); //Set color to white
+  tft.setCursor(stringLeft, stringTop); //Top left corner of the phrase
+  tft.setTextColor(HX8357_WHITE); //Set color
+  tft.setFont(&FreeSerif18pt7b); //Font
+  tft.println(label); //The phrase on the button
+}
+
+//===========Determine if a button is pressed=============
+boolean isPressed(double x, double y, double width, double height){
+ if ((xTouch <= 400 - y) && (xTouch >= 400 - y - height) && (yTouch >= x) && (yTouch <= x + width)){
+  return true;
+ }
+  return false;
+}
+
+//===========Display BPM data=============
+void displayBPM() {
+  if(QS==true){
+  if (BPM != prevCount){       
+    tft.setTextSize(5);
+    tft.setCursor(155, 270);
+    tft.setTextColor(tft.color565(207,79,10));
+    tft.print(prevCount);
+    tft.setCursor(155, 270);
+    tft.setTextColor(HX8357_WHITE);
+    tft.print(BPM);
+    prevCount = BPM;
+    } 
+    QS = false;
+   } 
+}
