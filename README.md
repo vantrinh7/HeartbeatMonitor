@@ -1,6 +1,6 @@
 # HeartbeatMonitor
 
-Arduino is a microcontroller platform able to read an input and produce an output. Arduino can be used to build low-cost scientific instruments and interactive prototypes. In this project, Arduino is used to build a heartbeat monitor. The parts for this instrument include: Arduino Uno R3 microcontroller board, 3.5” TFT screen, a pulse sensor, and a 9V power supply. 
+Arduino is a microcontroller platform able to read an input and produce an output. Arduino can be used to build low-cost scientific instruments and interactive prototypes. In this project, Arduino is used to build a heartbeat monitor. The parts for this instrument include: Arduino Uno R3 microcontroller board, 3.5” TFT screen, a pulse sensor, and a 9V power supply.  
 
 Below is a schematic of the device. The pulse sensor is connected to the Arduino microcontroller board, which controls the TFT screen and the LED bulb. Values from pulse sensor and LED bulb can then be displayed on the TFT screen.
 
